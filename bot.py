@@ -46,7 +46,7 @@ def main():
         command_prefix='!',
         intents=intents,
         description='A Discord bot to automatically back up the server '
-                    'messages data.')
+        'messages data.')
 
     @bot.event
     async def on_ready():
@@ -243,7 +243,7 @@ def main():
             inline=False)
         status_message = await ctx.send(embed=embed)
 
-        time.sleep(1)
+        time.sleep(10)
         ts = datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
         if ENABLE_LOCAL_SAVE:
             with open(f'.{ts}.json', 'w') as j:
@@ -292,9 +292,9 @@ def main():
                                  'w',
                                  compression=zipfile.ZIP_DEFLATED,
                                  compresslevel=9) as zf:
-                tmp.write(json.dumps(DATA).encode('utf-8'))
+                zf.writestr(f'{clean_guild_name}_data_{ts}.json',
+                            json.dumps(DATA).encode('utf-8'))
                 tmp.seek(0)
-                zf.writestr('data.json', tmp.read())
             await ctx.send(content='**Your data file:**',
                            file=discord.File(
                                tmp.name,

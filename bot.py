@@ -137,8 +137,14 @@ def main():
                     #   v.emoji.animated, v.emoji.animated, v.emoji.managed]
                     val_content = []
                     for v in val:
+                        if not hasattr(v, 'is_custom_emoji'):
+                            # For compatibility with discord.py <= 1.7.3
+                            is_custom_emoji = None
+                        else:
+                            is_custom_emoji = v.is_custom_emoji()
+
                         _d = {
-                            'is_custom_emoji': v.is_custom_emoji(),
+                            'is_custom_emoji': is_custom_emoji,
                             'me': v.me,
                             'count': v.count
                         }

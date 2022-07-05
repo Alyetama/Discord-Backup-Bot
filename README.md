@@ -28,3 +28,9 @@ pip install -r requirements.txt && rm -rf src
 ```sh
 python bot.py
 ```
+
+## 🐳 Docker
+
+```sh
+docker run -d -e BOT_TOKEN="xxxxxxxxxxxxx" alyetama/discord-backup-bot:latest
+```

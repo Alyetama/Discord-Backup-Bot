@@ -1,17 +1,78 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import io
 import json
 import os
 import re
+import sys
 import tempfile
 import time
+import uuid
 import zipfile
 from datetime import datetime
+from pathlib import Path
 
 import discord
+import requests
 from discord.ext import commands  # noqa: F401
 from dotenv import load_dotenv
+from minio import Minio
+
+
+class _UploadFile:
+
+    def __init__(self, raw_data, object_name):
+        self.raw_data = raw_data
+        self.object_name = object_name
+
+    def get_compressed_file_object(self):
+        with tempfile.NamedTemporaryFile(suffix='.zip') as f:
+            with zipfile.ZipFile(f, mode='w') as zf:
+                with tempfile.NamedTemporaryFile() as rf:
+                    rf.write(json.dumps(self.raw_data).encode('utf-8'))
+                    rf.seek(0)
+                    zf.write(rf.name, arcname=Path(self.object_name).stem)
+            f.flush()
+            f.seek(0)
+            obj = io.BytesIO(f.read())
+        return obj
+
+    def upload_s3_object(self, object_data):
+        client = Minio(os.getenv('S3_ENDPOINT'), os.getenv('S3_ACCESS_KEY'),
+                       os.getenv('S3_SECRET_SECRET'))
+        object = client.put_object(os.getenv('S3_BUCKET_NAME'),
+                                   self.object_name,
+                                   object_data,
+                                   object_data.getbuffer().nbytes,
+                                   content_type='application/zip')
+        presigned_url = client.presigned_get_object(object.bucket_name,
+                                                    object.object_name)
+        return presigned_url
+
+    def shorten_url(self, long_url):
+        clean_name = re.sub(r'\W', '_', self.object_name.strip('.json.zip'))
+        custom_ending = f'{str(uuid.uuid4()).split("-")[-1]}-{clean_name}'
+        request_data = {
+            'key': os.getenv('POLR_KEY'),
+            'url': long_url,
+            'custom_ending': custom_ending,
+            'is_secret': False
+        }
+        res = requests.post(
+            f'{os.getenv("POLR_SERVER")}/api/v2/action/shorten',
+            json=request_data)
+        if res.status_code != 200:
+            return long_url
+        return res.text
+
+    def fileio_upload(self, object_data):
+        url = 'https://file.io'
+        r = requests.post(
+            url,
+            files={'file': (self.object_name, object_data, 'application/zip')})
+        if r.status_code == 200:
+            return r.json()['link']
 
 
 def update_embed(embed, cur_progress, total_channels, num_messages, message):
@@ -31,8 +92,7 @@ def update_embed(embed, cur_progress, total_channels, num_messages, message):
 
 
 def main():
-    ENABLE_LOCAL_SAVE = False  # if true, will save a copy locally.
-    GET_DATA = False  # if true, can only export as pickle.
+    GET_DATA = False  # todo; if true, can only export as pickle.
 
     load_dotenv()
     intents = discord.Intents.default()
@@ -199,7 +259,7 @@ def main():
     @commands.has_permissions(administrator=True)
     async def backup(ctx, arg=None):
         clean_guild_name = re.sub(r'\W', '_', ctx.guild.name)
-        DATA = {'channels': {}}
+        data_dict = {'channels': {}}
 
         if not arg:
             await ctx.send(
@@ -248,12 +308,7 @@ def main():
             'many messages are on the server/channel.',
             inline=False)
         status_message = await ctx.send(embed=embed)
-
         time.sleep(10)
-        ts = datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
-        if ENABLE_LOCAL_SAVE:
-            with open(f'.{ts}.json', 'w') as j:
-                json.dump(DATA, j)
 
         for channel in ctx.guild.text_channels:
             if channel_id:
@@ -283,28 +338,25 @@ def main():
             await status_message.edit(embed=embed)
             success.append(channel.mention)
 
-            if ENABLE_LOCAL_SAVE:
-                with open(f'.{ts}.json', 'r+') as j:
-                    existing_data = json.load(j)
-                    existing_data['channels'].update(
-                        {channel.id: channel_history})
-                    j.seek(0)
-                    json.dump(existing_data, j)
+            data_dict['channels'].update({channel.id: channel_history})
 
-            DATA['channels'].update({channel.id: channel_history})
+        ts = datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
+        data_fname = f'{clean_guild_name}_data_{ts}.json.zip'
 
-        with tempfile.NamedTemporaryFile() as tmp:
-            with zipfile.ZipFile(tmp,
-                                 'w',
-                                 compression=zipfile.ZIP_DEFLATED,
-                                 compresslevel=9) as zf:
-                zf.writestr(f'{clean_guild_name}_data_{ts}.json',
-                            json.dumps(DATA).encode('utf-8'))
-                tmp.seek(0)
-            await ctx.send(content='**Your data file:**',
-                           file=discord.File(
-                               tmp.name,
-                               filename=f'{clean_guild_name}_data_{ts}.zip'))
+        uf = _UploadFile(data_dict, data_fname)
+        data_obj = uf.get_compressed_file_object()
+        if '--use-host' in sys.argv:
+            presign_url = uf.upload_s3_object(data_obj)
+            data_url = uf.shorten_url(presign_url)
+        else:
+            data_url = uf.fileio_upload(data_obj)
+
+        ebed = embed.insert_field_at(index=3,
+                                     name='Data download link:',
+                                     value=data_url,
+                                     inline=False)
+
+        await status_message.edit(embed=embed)
 
         if not fail:
             fail = ['–']

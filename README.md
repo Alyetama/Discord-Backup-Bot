@@ -2,7 +2,9 @@
 
 🚀 A Discord bot to automatically back up your server messages data[^1]
 
-[![Supported Python versions](https://img.shields.io/badge/Python-%3E=3.6-blue.svg?logo=python)](https://www.python.org/downloads/) [![PEP8](https://img.shields.io/badge/Code%20style-PEP%208-orange.svg?logo=python)](https://www.python.org/dev/peps/pep-0008/) [![Discord.py](https://img.shields.io/badge/Discord.py->=2.0.0a-yellow.svg?logo=python)](https://www.python.org/dev/peps/pep-0008/)
+[![Supported Python versions](https://img.shields.io/badge/Python-%3E=3.6-blue.svg?logo=python)](https://www.python.org/downloads/) [![PEP8](https://img.shields.io/badge/Code%20style-PEP%208-orange.svg?logo=python)](https://www.python.org/dev/peps/pep-0008/) [![Discord.py](https://img.shields.io/badge/Discord.py->=2.0.0a-yellow.svg?logo=python)](https://www.python.org/dev/peps/pep-0008/) [![GitHub License](https://img.shields.io/badge/License-MIT-red.svg)](https://github.com/Alyetama/Discord-Backup-Bot/blob/main/LICENSE)
+
+[![Docker Build](https://github.com/Alyetama/Discord-Backup-Bot/actions/workflows/docker-build.yml/badge.svg)](https://github.com/Alyetama/Discord-Backup-Bot/actions/workflows/docker-build.yml) [![Docker Hub](https://badgen.net/badge/icon/Docker%20Hub?icon=docker&label)](https://hub.docker.com/r/alyetama/discord-backup-bot)
 
 [![Discord](https://img.shields.io/badge/Invite%20To%20Your%20Server-%237289DA.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/api/oauth2/authorize?client_id=993789756955705375&permissions=117760&scope=bot)
 

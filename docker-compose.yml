@@ -2,6 +2,12 @@ version: '3.7'
 
 services:
 
+  bot:
+    image: alyetama/discord-backup-bot:latest
+    restart: always
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+
   minio:
     image: minio/minio
     restart: always

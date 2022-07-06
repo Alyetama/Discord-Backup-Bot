@@ -4,40 +4,49 @@ services:
 
   bot:
     image: alyetama/discord-backup-bot:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: always
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - POLR_SERVER=${POLR_SERVER}
+      - POLR_KEY=${POLR_KEY}
 
   minio:
     image: minio/minio
     restart: always
     ports:
-      - 9000:9000
-      - 9001:9001
+      - ${MINIO_SERVER_PORT:-9000}:9000
+      - ${MINIO_CONSOLE_PORT:-9001}:9001
     command: server /data --console-address ":9001"
     volumes:
       - ./buckets:/data
     environment:
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
       - MINIO_SERVER_URL=${MINIO_SERVER_URL}
 
   polr:
     image: ajanvier/polr
     ports:
-        - "8080:8080"
+        - "${POLR_PORT:-8080}:8080"
     environment:
-      - APP_NAME=polr
-      - APP_PROTOCOL="https://"
-      - APP_ADDRESS=${POLR_APP_ADDRESS}
-      - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=${POLR_ADMIN_PASSWORD}
+      - APP_NAME=${APP_NAME:-polr}
+      - APP_PROTOCOL="${APP_PROTOCOL:-https://}"
+      - APP_ADDRESS=${APP_ADDRESS}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - SETTING_SHORTEN_PERMISSION=true
       - SETTING_PSEUDORANDOM_ENDING=true
       - DB_HOST=db
-      - DB_PORT=3306
-      - DB_DATABASE=polr
-      - DB_USERNAME=polr
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_DATABASE=${DB_DATABASE:-polr}
+      - DB_USERNAME=${DB_USERNAME:-polr}
       - DB_PASSWORD=${DB_PASSWORD}
     depends_on:
       - db
@@ -47,9 +56,9 @@ services:
     command: --default-authentication-plugin=mysql_native_password
     restart: always
     expose:
-      - "3306"
+      - "${DB_PORT:-3306}"
     environment:
-      - MYSQL_ROOT_PASSWORD=${POLR_DB_PASSWORD}
-      - MYSQL_DATABASE=${DB_DATABASE}
-      - MYSQL_USER=${DB_USERNAME}
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=${DB_DATABASE:-polr}
+      - MYSQL_USER=${DB_USERNAME:-polr}
       - MYSQL_PASSWORD=${DB_PASSWORD}

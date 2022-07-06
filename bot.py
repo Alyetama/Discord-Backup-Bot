@@ -40,7 +40,7 @@ class _UploadFile:
 
     def upload_s3_object(self, object_data):
         client = Minio(os.getenv('S3_ENDPOINT'), os.getenv('S3_ACCESS_KEY'),
-                       os.getenv('S3_SECRET_SECRET'))
+                       os.getenv('S3_SECRET_KEY'))
         object = client.put_object(os.getenv('S3_BUCKET_NAME'),
                                    self.object_name,
                                    object_data,
@@ -359,12 +359,12 @@ def main():
         await status_message.edit(embed=embed)
 
         if not fail:
-            fail = ['–']
+            fail = ['None']
 
         embed = update_embed(
             embed, FINISHED_CHANNELS, LEN_CHANNELS, LEN_MESSAGES,
             f'Backup finished!\nSuccessfully backed up: '
-            f'{", ".join(success)}\nFailed to backup: '
+            f'{", ".join(success)}\nFailed to backup the following channels: '
             f'{", ".join(fail)}\n'
             f'Took: {round(time.time() - global_start, 2)}s')
         await status_message.edit(embed=embed)

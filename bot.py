@@ -51,12 +51,9 @@ class _UploadFile:
         return presigned_url
 
     def shorten_url(self, long_url):
-        clean_name = re.sub(r'\W', '_', self.object_name.strip('.json.zip'))
-        custom_ending = f'{str(uuid.uuid4()).split("-")[-1]}-{clean_name}'
         request_data = {
             'key': os.getenv('POLR_KEY'),
             'url': long_url,
-            'custom_ending': custom_ending,
             'is_secret': False
         }
         res = requests.post(
@@ -345,7 +342,7 @@ def main():
 
         uf = _UploadFile(data_dict, data_fname)
         data_obj = uf.get_compressed_file_object()
-        if '--use-host' in sys.argv:
+        if '--use-all-services' in sys.argv:
             presign_url = uf.upload_s3_object(data_obj)
             data_url = uf.shorten_url(presign_url)
         else:

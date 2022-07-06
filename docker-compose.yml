@@ -4,10 +4,9 @@ services:
 
   bot:
     image: alyetama/discord-backup-bot:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
+    #build: .
     restart: always
+    command: python app/bot.py --use-all-services
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
       - S3_ENDPOINT=${S3_ENDPOINT}

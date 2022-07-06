@@ -8,7 +8,6 @@ import re
 import sys
 import tempfile
 import time
-import uuid
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -28,7 +27,10 @@ class _UploadFile:
 
     def get_compressed_file_object(self):
         with tempfile.NamedTemporaryFile(suffix='.zip') as f:
-            with zipfile.ZipFile(f, mode='w') as zf:
+            with zipfile.ZipFile(f,
+                                 mode='w',
+                                 compression=zipfile.ZIP_DEFLATED,
+                                 compresslevel=9) as zf:
                 with tempfile.NamedTemporaryFile() as rf:
                     rf.write(json.dumps(self.raw_data).encode('utf-8'))
                     rf.seek(0)
@@ -286,7 +288,7 @@ def main():
 
         embed = discord.Embed(
             title='Backup Status',
-            description='The status of the current backup process...',
+            description='The status of the current backup process.',
             color=discord.Color.gold())
         embed.set_thumbnail(url='https://i.imgur.com/FCpL3hl.png')
         embed.insert_field_at(index=0,

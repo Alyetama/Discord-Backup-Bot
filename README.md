@@ -6,10 +6,40 @@
 
 [![Discord](https://img.shields.io/badge/Invite%20To%20Your%20Server-%237289DA.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/api/oauth2/authorize?client_id=993789756955705375&permissions=117760&scope=bot)
 
-## Requirements
+## Commands
+
+- To backup all channels:
+
+> !backup all
+
+- To back up a specific channel, you can use:
+
+a. The channel ID:
+
+> !backup 992974919547756566
+
+b. or the channel mention:
+
+> !backup #general
+
+## Required Permissions
+
+### Bot
+
+`Read Messages`, `Send Messages`, `Embed Links`, `Attach Files`, `Read Message History`.
+
+
+### User
+Only members with `Administrator` permission can use the bot.
+
+---
+
+## Self-Hosting & Development
+
+### Requirements
 - 🐍 [python>=3.6](https://www.python.org/downloads/)
 
-## ⬇️ Installation
+### ⬇️ Installation
 
 ```sh
 git clone https://github.com/Alyetama/auto-discord-server-backup.git
@@ -17,7 +47,7 @@ cd auto-discord-server-backup
 pip install -r requirements.txt && rm -rf src
 ```
 
-## ⌨️ Usage
+### ⌨️ Usage
 
 - Rename `.env.example` to `.env`, then edit it with your favorite text editor to add your bot token.
 - Then, run:
@@ -26,14 +56,14 @@ pip install -r requirements.txt && rm -rf src
 python bot.py
 ```
 
-## 🐳 Docker
+### 🐳 Docker
 
 ```sh
 docker run -d -e BOT_TOKEN="xxxxxxxxxxxxx" alyetama/discord-backup-bot:latest
 ```
 
 
-## 🔧 Advanced (Docker-Compose)
+### 🔧 Advanced (Docker-Compose)
 
 Optional: You can use the Docker-Compose file to host the bot, a self-hosted S3-compatible Object Storage to upload the backup data ([MinIO](https://github.com/minio/minio)), and a URL shortner to shorten the presigned URLs ([Polr](https://github.com/cydrobolt/polr)).\
 First, uncomment and set the optional environment variables in the `.env` file, Then, run:

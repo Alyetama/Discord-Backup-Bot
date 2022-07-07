@@ -17,6 +17,7 @@ import discord
 import requests
 from discord.ext import commands  # noqa: F401
 from dotenv import load_dotenv
+from loguru import logger
 from minio import Minio
 
 
@@ -93,6 +94,21 @@ def update_embed(embed, cur_progress, total_channels, num_messages, message):
 
 
 def main():
+    config = {
+        'handlers': [
+            {
+                'sink': sys.stdout,
+                'format': '{extra[server_id]} {extra[user_id]} {message}'
+            },
+            {
+                'sink': 'logs.log',
+                'serialize': True
+            },
+        ]
+    }
+
+    logger.configure(**config)
+
     GET_DATA = False  # todo; if true, can only export as pickle.
 
     load_dotenv()
@@ -114,8 +130,6 @@ def main():
     async def on_ready():
         print(f'Logged in as {bot.user.name} ({bot.user.id})')
         print('-' * 80)
-
-    SERVER = {'channels': {}}
 
     def get_guild(guild):
         guild_dict = {}
@@ -140,7 +154,7 @@ def main():
             if attr in guild_is_level_attrs:
                 guild_dict[attr] = {
                     x: getattr(val, x)
-                    for x in dir(val) if not x.startswith('_')
+                    for x in ['name', 'value']
                 }
 
             elif attr == 'system_channel_flags':
@@ -434,6 +448,10 @@ def main():
     @bot.command()
     @commands.has_permissions(administrator=True)
     async def backup(ctx, arg=None):
+        logger.info(
+            f'Backup requested from {ctx.author.name} in {ctx.guild.name}.',
+            server_id=ctx.author.id,
+            user_id=ctx.guild.id)
 
         clean_guild_name = re.sub(r'\W', '_', ctx.guild.name)
 
@@ -490,6 +508,8 @@ def main():
                            name='Latest update:',
                            value='Getting guild data...',
                            inline=False)
+
+        SERVER = {'channels': {}}
 
         guild_dict = get_guild(ctx.guild)
         SERVER.update({'guild': guild_dict})

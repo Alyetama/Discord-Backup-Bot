@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import inspect
 import io
 import json
 import os
@@ -43,16 +44,17 @@ class _UploadFile:
     def upload_s3_object(self, object_data):
         client = Minio(os.getenv('S3_ENDPOINT'), os.getenv('S3_ACCESS_KEY'),
                        os.getenv('S3_SECRET_KEY'))
-        object = client.put_object(os.getenv('S3_BUCKET_NAME'),
-                                   self.object_name,
-                                   object_data,
-                                   object_data.getbuffer().nbytes,
-                                   content_type='application/zip')
-        presigned_url = client.presigned_get_object(object.bucket_name,
-                                                    object.object_name)
+        s3_object = client.put_object(os.getenv('S3_BUCKET_NAME'),
+                                      self.object_name,
+                                      object_data,
+                                      object_data.getbuffer().nbytes,
+                                      content_type='application/zip')
+        presigned_url = client.presigned_get_object(s3_object.bucket_name,
+                                                    s3_object.object_name)
         return presigned_url
 
-    def shorten_url(self, long_url):
+    @staticmethod
+    def shorten_url(long_url):
         request_data = {
             'key': os.getenv('POLR_KEY'),
             'url': long_url,
@@ -97,6 +99,7 @@ def main():
     intents = discord.Intents.default()
     try:
         intents.message_content = True
+        intents.members = True
     except AttributeError:
         print(f'WARNING: detected version: {discord.__version__}! '
               'Stickers data will not be exported...')
@@ -112,12 +115,179 @@ def main():
         print(f'Logged in as {bot.user.name} ({bot.user.id})')
         print('-' * 80)
 
+    SERVER = {'channels': {}}
+
+    def get_guild(guild):
+        guild_dict = {}
+        guild_attr_get_id_name = [
+            'system_channel', 'voice_channels', 'text_channels',
+            'default_role', 'categories', 'stage_channels',
+            'premium_subscribers', 'channels', 'premium_subscriber_role',
+            'rules_channel', 'owner', 'self_role', 'public_updates_channel',
+            'members', 'me'
+        ]
+        special_guild_attrs = [
+            'afk_channel', 'verification_level', 'explicit_content_filter',
+            'default_notifications', 'voice_client'
+        ]
+        guild_is_level_attrs = ['nsfw_level', 'mfa_level']
+        for attr in dir(guild):
+            if attr.startswith('_') or inspect.ismethod(getattr(guild, attr)):
+                continue
+
+            val = getattr(guild, attr)
+
+            if attr in guild_is_level_attrs:
+                guild_dict[attr] = {
+                    x: getattr(val, x)
+                    for x in dir(val) if not x.startswith('_')
+                }
+
+            elif attr == 'system_channel_flags':
+                guild_dict[attr] = {
+                    k: getattr(val, k)
+                    for k in dir(val) if not k.startswith('_')
+                    if k not in ['count', 'index']
+                }
+
+            elif attr in special_guild_attrs:
+                if val:
+                    try:
+                        guild_dict[attr] = val.name
+                    except AttributeError:
+                        guild_dict[attr] = None
+                else:
+                    guild_dict[attr] = val
+
+            elif attr in ['region', 'created_at']:
+                guild_dict[attr] = str(val)
+
+            elif attr == 'roles':
+                _vals = []
+                for _val in val:
+                    _d = {
+                        x: getattr(_val, x)
+                        for x in dir(_val)
+                        if (not x.startswith('_') and not inspect.ismethod(
+                            getattr(_val, x)) and x != 'guild')
+                    }
+                    _d.pop('members')
+                    for _k, _v in _d.items():
+                        if _k == 'created_at':
+                            _d[_k] = str(_d[_k])
+                        elif _k == 'color':
+                            _d[_k] = _d[_k].to_rgb()
+                        elif _k == 'permissions':
+                            _d[_k] = _d[_k].value
+                        elif _k == 'tags':
+                            _tags = {
+                                _tag: getattr(_d[_k], _tag)
+                                for _tag in dir(_d[_k]) if _tag in [
+                                    'bot_id', 'integration_id',
+                                    'premium_subscriber', 'unicode_emoji'
+                                ]
+                            }
+            elif attr in ['emojis', 'stickers']:
+                _vals = []
+                for _val in val:
+                    _d = {
+                        x: getattr(_val, x)
+                        for x in dir(_val)
+                        if (not x.startswith('_') and not inspect.ismethod(
+                            getattr(_val, x)) and x != 'guild')
+                    }
+                    _d['created_at'] = str(_d['created_at'])
+                    _vals.append(_d)
+
+                guild_dict[attr] = _vals
+
+            elif attr == 'icon':
+                if val:
+                    guild_dict[attr] = val.url
+                else:
+                    guild_dict[attr] = None
+
+            elif attr == 'preferred_locale':
+                guild_dict[attr] = val.name
+
+            elif attr == 'guild':
+                guild_dict[attr] = {
+                    x: getattr(val, x)
+                    for x in dir(val)
+                    if (not x.startswith('_')
+                        and not inspect.ismethod(getattr(val, x)))
+                }
+            elif attr in guild_attr_get_id_name:
+                if not val:
+                    continue
+                try:
+                    iter(val)
+                except TypeError:
+                    guild_dict[attr] = {
+                        x: getattr(val, x)
+                        for x in ['id', 'name']
+                    }
+                    continue
+
+                _vals = []
+                for _val in val:
+                    _vals.append({x: getattr(_val, x) for x in ['id', 'name']})
+                guild_dict[attr] = _vals
+            else:
+                guild_dict[attr] = val
+        return guild_dict
+
+    async def get_members(members_iterator):
+        members_dicts = []
+
+        members_as_is_attrs = [
+            'activities', 'bot', 'desktop_status', 'discriminator',
+            'display_name', 'id', 'joined_at', 'mention', 'mobile_status',
+            'mutual_guilds', 'name', 'pending', 'raw_status', 'roles',
+            'status', 'system', 'web_status'
+        ]
+
+        async for member in members_iterator:
+            member_dict = {}
+            guild_permissions = {}
+            for x in dir(member.guild_permissions):
+                if not x.startswith('_'):
+                    _val = getattr(member.guild_permissions, x)
+                    if not inspect.ismethod(_val):
+                        guild_permissions[x] = _val
+            member_dict['guild_permissions'] = guild_permissions
+            member_dict['roles'] = [{
+                'id': x.id,
+                'name': x.name
+            } for x in member.roles]
+
+            for attr in members_as_is_attrs:
+                if attr in ['created_at', 'joined_at']:
+                    val = str(getattr(member, attr))
+                elif 'status' in attr:
+                    continue
+                elif attr in ['roles', 'mutual_guilds']:
+                    if attr == 'mutual_guilds' and not hasattr(
+                            member, 'mutual_guilds'):
+                        val = None
+                    else:
+                        _val = getattr(member, attr)
+                        val = [{'id': x.id, 'name': x.name} for x in _val]
+                else:
+                    val = getattr(member, attr)
+                member_dict[attr] = val
+
+            members_dicts.append(member_dict)
+
+        members_dicts = {x['id']: x for x in members_dicts}
+        return members_dicts
+
     async def backup_channel(channel):
         regular_types = [
             'activity', 'application', 'clean_content', 'content', 'id',
             'jump_url', 'mention_everyone', 'pinned', 'system_content', 'tts',
             'webhook_id', 'raw_channel_mentions', 'raw_mentions',
-            'raw_role_mentions'
+            'raw_role_mentions', 'created_at'
         ]  # as it is
         cls_methods = [
             'clear_reaction', 'delete', 'pin', 'reply', 'publish',
@@ -146,7 +316,7 @@ def main():
                     # .name, .id (more details can be accessed through each key
                     #   in the global dict)
                     val_content = {'id': val.id, 'name': val.name}
-                elif attr in ['created_at', 'edited_at']:
+                elif attr == 'edited_at':
                     val_content = str(val)
                 elif attr in ['channel_mentions', 'mentions', 'role_mentions']:
                     # iterable; .name and .id
@@ -252,13 +422,20 @@ def main():
                 d.update({attr: val_content})
 
             history.append(d)
+
+        history = {x['created_at']: x for x in history}
+
+        history = dict(sorted(history.items()))
+        history = {str(k): v for k, v in history.items()}
+        for k, v in history.items():
+            v['created_at'] = str(v['created_at'])
         return history
 
     @bot.command()
     @commands.has_permissions(administrator=True)
-    async def backup(ctx, arg=None):
+    async def _backup(ctx, arg=None):
+
         clean_guild_name = re.sub(r'\W', '_', ctx.guild.name)
-        data_dict = {'channels': {}}
 
         if not arg:
             await ctx.send(
@@ -309,6 +486,22 @@ def main():
         status_message = await ctx.send(embed=embed)
         time.sleep(10)
 
+        embed.set_field_at(index=2,
+                           name='Latest update:',
+                           value='Getting guild data...',
+                           inline=False)
+
+        guild_dict = get_guild(ctx.guild)
+        SERVER.update({'guild': guild_dict})
+
+        embed.set_field_at(index=2,
+                           name='Latest update:',
+                           value='Getting members data...',
+                           inline=False)
+
+        members_dicts = await get_members(ctx.guild.fetch_members())
+        SERVER.update({'members': members_dicts})
+
         for channel in ctx.guild.text_channels:
             if channel_id:
                 if channel.id != channel_id:
@@ -337,12 +530,12 @@ def main():
             await status_message.edit(embed=embed)
             success.append(channel.mention)
 
-            data_dict['channels'].update({channel.id: channel_history})
+            SERVER['channels'].update({channel.id: channel_history})
 
         ts = datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
         data_fname = f'{clean_guild_name}_data_{ts}.json.zip'
 
-        uf = _UploadFile(data_dict, data_fname)
+        uf = _UploadFile(SERVER, data_fname)
         data_obj = uf.get_compressed_file_object()
         if '--use-all-services' in sys.argv:
             presign_url = uf.upload_s3_object(data_obj)
@@ -350,10 +543,10 @@ def main():
         else:
             data_url = uf.fileio_upload(data_obj)
 
-        ebed = embed.insert_field_at(index=3,
-                                     name='Data download link:',
-                                     value=data_url,
-                                     inline=False)
+        embed = embed.insert_field_at(index=3,
+                                      name='Data download link:',
+                                      value=data_url,
+                                      inline=False)
 
         await status_message.edit(embed=embed)
 

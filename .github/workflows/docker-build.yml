@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   release:
     types: [published]
+  push:
 
 env:
   IMAGE_NAME: discord-backup-bot

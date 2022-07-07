@@ -433,7 +433,7 @@ def main():
 
     @bot.command()
     @commands.has_permissions(administrator=True)
-    async def _backup(ctx, arg=None):
+    async def backup(ctx, arg=None):
 
         clean_guild_name = re.sub(r'\W', '_', ctx.guild.name)
 

@@ -61,3 +61,6 @@ services:
       - MYSQL_DATABASE=${DB_DATABASE:-polr}
       - MYSQL_USER=${DB_USERNAME:-polr}
       - MYSQL_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - /var/lib/mysql
+      - ./mysql-data:/var/lib/mysql

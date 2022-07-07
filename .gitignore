@@ -193,3 +193,4 @@ logs/
 *.out
 src/
 buckets/
+mysql-data/
